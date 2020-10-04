@@ -23,12 +23,16 @@ def recv_msg(s):
         if len(part) < BUFFER:
             break
     try:
-        hdr_len = int(data[:HEADERSIZE].decode())
+        msglen = int(data[:HEADERSIZE].decode())
     except ValueError:
-        hdr_len = 0
-    action = data[HEADERSIZE : HEADERSIZE + hdr_len].decode()
-    payload = data[HEADERSIZE + hdr_len :].decode()
-    return payload, action, hdr_len
+        msglen = 0
+
+    data_len = len(data)
+    action_len = data_len - (HEADERSIZE + msglen)
+    payload_start = HEADERSIZE + action_len
+    action = data[HEADERSIZE : HEADERSIZE + action_len].decode()
+    payload = data[payload_start:].decode()
+    return payload, action, msglen
 
 
 def send_msg(s, msg, action):
@@ -69,9 +73,8 @@ def get(host, filename):
                 if not bdata:
                     break
 
-            with open(filename, "w") as f:
-                sdata = data.decode("utf-8")
-                f.write(sdata)
+            with open(filename, "wb") as f:
+                f.write(data)
                 f.close()
             s.close()
             sys.exit(0)
@@ -101,7 +104,7 @@ def send(control, host, filename):
             sys.exit(1)
 
 
-def init_connection(host, action, filename):
+def control_connect(host, action, filename):
     """
     The client side control channel connection.
     Sends and receives messages from server to act accordingly
@@ -113,41 +116,19 @@ def init_connection(host, action, filename):
         try:
             s.connect((host, PORT))
             while True:
-                full_msg = ""
-                new_msg = True
-                while True:
-                    msg = s.recv(16)
-                    if new_msg:
-                        print(f"new message length: {msg[:HEADERSIZE]}")
-                        msglen = int(msg[:HEADERSIZE])
-                        new_msg = False
+                payload, action_recv, msglen = recv_msg(s)
 
-                    full_msg += msg.decode("utf-8")
-                    if len(full_msg) - HEADERSIZE == msglen:
-                        print(full_msg[HEADERSIZE:])
-                        if full_msg[HEADERSIZE:] == "GET_READY":
-                            get(host, filename)
-                        elif full_msg[HEADERSIZE:] == "SEND_READY":
-                            send(s, host, filename)
-                        new_msg = True
-                        full_msg = ""
+                if action_recv == "GET_READY":
+                    get(host, filename)
+                elif action_recv == "SEND_READY":
+                    send(s, host, filename)
 
-                    if action == "GET":
-                        s.send(
-                            bytes(
-                                f"{len(action):<{HEADERSIZE}}" + action + filename,
-                                "utf-8",
-                            )
-                        )
-                    elif action == "SEND":
-                        s.send(
-                            bytes(
-                                f"{len(action):<{HEADERSIZE}}" + action + filename,
-                                "utf-8",
-                            )
-                        )
-                    elif action == "CLOSE":
-                        s.send(bytes(f"{len(action):<{HEADERSIZE}}" + action, "utf-8"))
+                if action == "GET":
+                    send_msg(s, filename, action)
+                elif action == "SEND":
+                    send_msg(s, filename, action)
+                elif action == "CLOSE":
+                    send_msg(s, "", action)
 
         except KeyboardInterrupt:
             s.close()
@@ -164,7 +145,7 @@ def main():
         sys.exit(1)
     host, action, filename = sys.argv[1], sys.argv[2], sys.argv[3]
 
-    init_connection(host, action, filename)
+    control_connect(host, action, filename)
 
 
 if __name__ == "__main__":
