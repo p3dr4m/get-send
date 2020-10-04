@@ -11,6 +11,7 @@ DATA_PORT = PORT + 1
 HEADERSIZE = 10
 BUFFER = 64
 
+
 def data_channel(action, control, filename):
     """
     This is the data_channel logic.
@@ -25,7 +26,7 @@ def data_channel(action, control, filename):
             print(f"Data Channel: Listening on {HOST}:{DATA_PORT}")
             while True:
                 if action == "GET":
-                    send_msg(control, "GET_READY", "")
+                    send_msg(control, "", "GET_READY")
                     client_socket, address = s.accept()
                     with client_socket:
                         if os.path.exists(filename):
@@ -41,7 +42,7 @@ def data_channel(action, control, filename):
                     break
 
                 elif action == "SEND":
-                    send_msg(control, "SEND_READY", "")
+                    send_msg(control, "", "SEND_READY")
                     client_socket, address = s.accept()
                     data = bytearray()
                     while True:
@@ -50,17 +51,14 @@ def data_channel(action, control, filename):
                         if not bdata:
                             break
 
-                    with open(filename, "w") as f:
-                        sdata = data.decode("utf-8")
-                        f.write(sdata)
+                    with open(filename, "wb") as f:
+                        f.write(data)
                         f.close()
                     print("Closing Data Channel")
                     break
         except KeyboardInterrupt:
             s.close()
             sys.exit(1)
-
-
 
 
 def recv_msg(s):
@@ -76,14 +74,17 @@ def recv_msg(s):
         if len(part) < BUFFER:
             break
     try:
-        hdr_len = int(data[:HEADERSIZE].decode())
+        msglen = int(data[:HEADERSIZE].decode())
     except ValueError:
-        hdr_len = 0
-    action = data[HEADERSIZE:HEADERSIZE + hdr_len].decode()
-    payload = data[HEADERSIZE + hdr_len:].decode()
-    return payload, action, hdr_len
+        msglen = 0
 
-
+    data_len = len(data)
+    action_len = data_len - (HEADERSIZE + msglen)
+    payload_start = HEADERSIZE + action_len
+    action = data[HEADERSIZE : HEADERSIZE + action_len].decode()
+    payload = data[payload_start:].decode()
+    print(action, payload, msglen)
+    return payload, action, msglen
 
 
 def send_msg(s, msg, action):
@@ -107,7 +108,6 @@ def send_file(s, f):
         part = f.read(BUFFER)
 
 
-
 def control_channel():
     """
     Opens the control_channel socket
@@ -126,7 +126,6 @@ def control_channel():
                 send_msg(client_socket, "Hello from Server", "")
 
                 filename, action, hdr_len = recv_msg(client_socket)
-                print(action)
                 if action == "GET" or action == "SEND":
                     data_channel(action, client_socket, filename)
 
