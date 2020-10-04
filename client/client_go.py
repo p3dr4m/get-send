@@ -54,6 +54,7 @@ def get(host, filename):
                 sdata = data.decode("utf-8")
                 f.write(sdata)
                 f.close()
+            s.close()
             sys.exit(0)
         except KeyboardInterrupt:
             s.close()
@@ -64,13 +65,13 @@ def send(control, host, filename):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.connect((host, DATA_PORT))
-            send_msg(control, "SEND_READY", '')
             with s:
                 if os.path.exists(filename):
                     with open(filename, 'rb') as f:
                         send_file(s, f)
                 else:
                     print(f"{filename} doesn't exist on client")
+            sys.exit(0)
         except KeyboardInterrupt:
             s.close()
             sys.exit(1)

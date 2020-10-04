@@ -34,17 +34,17 @@ def data_channel(action, control, filename):
                 elif action == "SEND":
                     send_msg(control, "SEND_READY", '')
                     client_socket, address = s.accept()
-                    data = client_socket.recv(BUFFER)
-                    payload, action, hdr_len = recv_msg(client_socket)
-                    with open(filename, "wb") as f:
-                        while True:
-                            if action:
-                                continue
-                            data = client_socket.recv(BUFFER)
-                            if not data:
-                                f.close()
-                                break
-                            f.write(data)
+                    data = bytearray()
+                    while True:
+                        bdata = client_socket.recv(BUFFER)
+                        data += bdata
+                        if not bdata: break
+                    
+                    with open(filename, "w") as f:
+                            sdata = data.decode("utf-8")
+                            f.write(sdata)
+                            f.close()
+                    print("Closing Data Channel")
                     break
         except KeyboardInterrupt:
             s.close()
