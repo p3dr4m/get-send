@@ -5,13 +5,18 @@ import sys
 import time
 import os
 
-HOST = '0.0.0.0'
+HOST = "0.0.0.0"
 PORT = 7005
 DATA_PORT = PORT + 1
 HEADERSIZE = 10
 BUFFER = 64
 
 def data_channel(action, control, filename):
+    """
+    This is the data_channel logic.
+    It opens a socket from the control_channel.
+    When the client sends a message with the correct action name.
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -20,30 +25,35 @@ def data_channel(action, control, filename):
             print(f"Data Channel: Listening on {HOST}:{DATA_PORT}")
             while True:
                 if action == "GET":
-                    send_msg(control, "GET_READY", '')
+                    send_msg(control, "GET_READY", "")
                     client_socket, address = s.accept()
                     with client_socket:
                         if os.path.exists(filename):
-                            with open(filename, 'rb') as f:
+                            with open(filename, "rb") as f:
                                 send_file(client_socket, f)
                         else:
-                            send_msg(client_socket, f"{filename} doesn't exist on server", "CLOSE")
+                            send_msg(
+                                client_socket,
+                                f"{filename} doesn't exist on server",
+                                "CLOSE",
+                            )
                     print("Closing Data Channel")
                     break
 
                 elif action == "SEND":
-                    send_msg(control, "SEND_READY", '')
+                    send_msg(control, "SEND_READY", "")
                     client_socket, address = s.accept()
                     data = bytearray()
                     while True:
                         bdata = client_socket.recv(BUFFER)
                         data += bdata
-                        if not bdata: break
-                    
+                        if not bdata:
+                            break
+
                     with open(filename, "w") as f:
-                            sdata = data.decode("utf-8")
-                            f.write(sdata)
-                            f.close()
+                        sdata = data.decode("utf-8")
+                        f.write(sdata)
+                        f.close()
                     print("Closing Data Channel")
                     break
         except KeyboardInterrupt:
@@ -51,8 +61,15 @@ def data_channel(action, control, filename):
             sys.exit(1)
 
 
+
+
 def recv_msg(s):
-    data = b''
+    """
+    Helper function to receive the message
+    Message format:
+    {HEADER_LENGTH}{ACTION}{PAYLOAD}
+    """
+    data = b""
     while True:
         part = s.recv(BUFFER)
         data += part
@@ -66,18 +83,36 @@ def recv_msg(s):
     payload = data[HEADERSIZE + hdr_len:].decode()
     return payload, action, hdr_len
 
+
+
+
 def send_msg(s, msg, action):
+    """
+    Message format:
+    {HEADER_LENGTH}{ACTION}{PAYLOAD}
+    creates the message and sends it
+    """
     msg = f"{len(msg):<{HEADERSIZE}}" + action + msg
     s.sendall(bytes(msg, "utf-8"))
 
+
 def send_file(s, f):
+    """
+    Helper that stitches the file back together
+    """
     part = f.read(BUFFER)
     while part:
         s.send(part)
         print(f"Sent ${repr(part)}")
         part = f.read(BUFFER)
 
+
+
 def control_channel():
+    """
+    Opens the control_channel socket
+    Check for action messages and filename
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -88,21 +123,17 @@ def control_channel():
             while True:
                 client_socket, address = s.accept()
                 print(f"Connected from ${address}")
-                send_msg(client_socket, "Hello from Server", '')
+                send_msg(client_socket, "Hello from Server", "")
 
-                payload, action, hdr_len = recv_msg(client_socket)
+                filename, action, hdr_len = recv_msg(client_socket)
                 print(action)
                 if action == "GET" or action == "SEND":
-                    data_channel(action, client_socket, payload)
-                
-                
+                    data_channel(action, client_socket, filename)
+
                 if action == "CLOSE":
                     s.shutdown(socket.SHUT_RDWR)
                     s.close()
                     sys.exit(0)
-
-
-                # client_socket.close()
 
         except KeyboardInterrupt:
             print("KeyboardInterrupt: Closing connections")
@@ -110,5 +141,6 @@ def control_channel():
             s.close()
             sys.exit(1)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     control_channel()
