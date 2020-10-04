@@ -4,7 +4,7 @@ import sys
 import os
 
 HOST = ''  # The server's hostname or IP address
-PORT = 7006  # The port used by the server
+PORT = 7005  # The port used by the server
 DATA_PORT = PORT + 1
 HEADERSIZE = 10
 BUFFER = 64

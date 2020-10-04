@@ -6,7 +6,7 @@ import time
 import os
 
 HOST = '0.0.0.0'
-PORT = 7006
+PORT = 7005
 DATA_PORT = PORT + 1
 HEADERSIZE = 10
 BUFFER = 64
@@ -28,7 +28,6 @@ def data_channel(action, control, filename):
                                 send_file(client_socket, f)
                         else:
                             send_msg(client_socket, f"{filename} doesn't exist on server", "CLOSE")
-                    # client_socket.close()
                     print("Closing Data Channel")
                     break
 
@@ -46,7 +45,6 @@ def data_channel(action, control, filename):
                                 f.close()
                                 break
                             f.write(data)
-                    client_socket.close()
                     break
         except KeyboardInterrupt:
             s.close()
