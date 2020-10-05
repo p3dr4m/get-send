@@ -4,6 +4,7 @@ import socket
 import sys
 import time
 import os
+from pathlib import Path
 
 HOST = "0.0.0.0"
 PORT = 7005
@@ -51,7 +52,7 @@ def data_channel(action, control, filename):
                         if not bdata:
                             break
 
-                    with open(filename, "wb") as f:
+                    with open(Path(filename).name, "wb") as f:
                         f.write(data)
                         f.close()
                     print("Closing Data Channel")
