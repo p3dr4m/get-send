@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
+
 import socket
 import sys
 import os
+from pathlib import Path
 
 HOST = ""
 PORT = 7005
@@ -73,7 +75,7 @@ def get(host, filename):
                 if not bdata:
                     break
 
-            with open(filename, "wb") as f:
+            with open(Path(filename).name, "wb") as f:
                 f.write(data)
                 f.close()
             s.close()
