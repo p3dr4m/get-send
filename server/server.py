@@ -25,27 +25,26 @@ def data_channel(action, control, filename):
             s.bind((HOST, DATA_PORT))
             s.listen(2)
             print(f"Data Channel: Listening on {HOST}:{DATA_PORT}")
-            while True:
-                if action == "GET":
-                    send_msg(control, "", "GET_READY")
-                    client_socket, address = s.accept()
-                    with client_socket:
-                        if os.path.exists(filename):
-                            with open(filename, "rb") as f:
-                                send_file(client_socket, f)
-                        else:
-                            send_msg(
-                                client_socket,
-                                f"{filename} doesn't exist on server",
-                                "CLOSE",
-                            )
-                    print("Closing Data Channel")
-                    break
+            if action == "GET":
+                send_msg(control, "", "GET_READY")
+                client_socket, address = s.accept()
+                with client_socket:
+                    if os.path.exists(filename):
+                        with open(filename, "rb") as f:
+                            send_file(client_socket, f)
+                    else:
+                        send_msg(
+                            client_socket,
+                            f"{filename} doesn't exist on server",
+                            "CLOSE",
+                        )
+                print("Closing Data Channel")
 
-                elif action == "SEND":
-                    send_msg(control, "", "SEND_READY")
-                    client_socket, address = s.accept()
-                    data = bytearray()
+            elif action == "SEND":
+                send_msg(control, "", "SEND_READY")
+                client_socket, address = s.accept()
+                data = bytearray()
+                with client_socket:
                     while True:
                         bdata = client_socket.recv(BUFFER)
                         data += bdata
@@ -55,8 +54,8 @@ def data_channel(action, control, filename):
                     with open(Path(filename).name, "wb") as f:
                         f.write(data)
                         f.close()
-                    print("Closing Data Channel")
-                    break
+
+                print("Closing Data Channel")
         except KeyboardInterrupt:
             s.close()
             sys.exit(1)

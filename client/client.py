@@ -117,6 +117,14 @@ def control_connect(host, action, filename):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.connect((host, PORT))
+
+            if action == "GET":
+                send_msg(s, filename, action)
+            elif action == "SEND":
+                send_msg(s, filename, action)
+            elif action == "CLOSE":
+                send_msg(s, "", action)
+
             while True:
                 payload, action_recv, msglen = recv_msg(s)
 
@@ -124,13 +132,6 @@ def control_connect(host, action, filename):
                     get(host, filename)
                 elif action_recv == "SEND_READY":
                     send(s, host, filename)
-
-                if action == "GET":
-                    send_msg(s, filename, action)
-                elif action == "SEND":
-                    send_msg(s, filename, action)
-                elif action == "CLOSE":
-                    send_msg(s, "", action)
 
         except KeyboardInterrupt:
             s.close()
