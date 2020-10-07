@@ -17,7 +17,6 @@ import socket
 import sys
 import os
 from pathlib import Path
-import string
 
 HOST = ""
 PORT = 7005
@@ -233,7 +232,7 @@ def control_connect():
                 send_msg(s, "", action)
 
             command = action
-
+        s.close()
         sys.exit(0)
     except KeyboardInterrupt:
         s.close()
