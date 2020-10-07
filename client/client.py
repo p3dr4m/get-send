@@ -201,8 +201,8 @@ def control_connect():
             filename = ""
             action, filename = (command.split(" ") + [None])[:2]
 
-            if action == "GET":
-                while True:
+            while True:
+                if action == "GET":
                     filename = Path(filename).name
                     send_msg(s, filename, action)
                     message, action_recv, msglen = recv_msg(s)
@@ -216,8 +216,7 @@ def control_connect():
                     elif action_recv == "GET_FAIL":
                         print(message)
                         break
-            elif action == "SEND":
-                while True:
+                elif action == "SEND":
                     filename = Path(filename).name
                     send_msg(s, filename, action)
                     message, action_recv, msglen = recv_msg(s)
@@ -228,12 +227,17 @@ def control_connect():
                         print("SEND FIN")
                         s = None
                         break
-            elif action == "CLOSE":
-                send_msg(s, "", action)
+                elif action == "CLOSE":
+                    send_msg(s, "", action)
+                    s.close()
+                    sys.exit(0)
+                    break
+                else:
+                    print("Bad command")
+                    break
 
             command = action
-        s.close()
-        sys.exit(0)
+
     except KeyboardInterrupt:
         s.close()
         sys.exit(1)
