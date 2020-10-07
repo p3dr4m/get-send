@@ -77,10 +77,10 @@ def data_channel(action, control, filename):
                         data += bdata
                         if not bdata:
                             break
-
-                    with open(filename, "wb") as f:
-                        f.write(data)
-                        f.close()
+                    if data:
+                        with open(filename, "wb") as f:
+                            f.write(data)
+                            f.close()
                 send_msg(control, "", "SEND_FIN")
                 print("Closing Data Socket")
             s.close()
