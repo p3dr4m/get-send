@@ -47,39 +47,43 @@ def data_channel(action, control, filename):
             s.bind((HOST, DATA_PORT))
             s.listen(2)
             print(f"Data Channel: Listening on {HOST}:{DATA_PORT}")
-            while True:
-                if action == "GET":
+            if action == "GET":
+                if os.path.isfile(filename):
                     send_msg(control, "", "GET_READY")
                     client_socket, address = s.accept()
                     with client_socket:
-                        if os.path.exists(filename):
-                            with open(filename, "rb") as f:
-                                send_file(client_socket, f)
-                        else:
-                            send_msg(
-                                client_socket,
-                                f"{filename} doesn't exist on server",
-                                "CLOSE",
-                            )
-                    print("Closing Data Channel")
-                    break
+                        with open(filename, "rb") as f:
+                            send_file(client_socket, f)
+                else:
+                    send_msg(
+                        control,
+                        f"{filename} doesn't exist on server",
+                        "GET_FAIL",
+                    )
+                    s.shutdown(socket.SHUT_RDWR)
+                    s.close()
+                    print("Closing Data Socket")
 
-                elif action == "SEND":
-                    send_msg(control, "", "SEND_READY")
-                    client_socket, address = s.accept()
-                    data = bytearray()
-                    with client_socket:
-                        while True:
-                            bdata = client_socket.recv(BUFFER)
-                            data += bdata
-                            if not bdata:
-                                break
+                send_msg(control, "", "GET_FIN")
+                print("Closing Data Socket")
 
-                        with open(Path(filename).name, "wb") as f:
-                            f.write(data)
-                            f.close()
-                print("Closing Data Channel")
-                break
+            elif action == "SEND":
+                send_msg(control, "", "SEND_READY")
+                client_socket, address = s.accept()
+                data = bytearray()
+                with client_socket:
+                    while True:
+                        bdata = client_socket.recv(BUFFER)
+                        data += bdata
+                        if not bdata:
+                            break
+
+                    with open(filename, "wb") as f:
+                        f.write(data)
+                        f.close()
+                send_msg(control, "", "SEND_FIN")
+                print("Closing Data Socket")
+            s.close()
         except KeyboardInterrupt:
             s.close()
             sys.exit(1)
@@ -178,15 +182,22 @@ def control_channel():
         try:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             s.bind((HOST, PORT))
-            s.listen(2)
+            s.listen()
             print(f"Listening on {HOST}:{PORT}")
 
             while True:
-                client_socket, address = s.accept()
+                try:
+                    client_socket, address = s.accept()
+                except socket.error as msg:
+                    print(f"{msg}")
                 print(f"Connected from ${address}")
 
                 filename, action, hdr_len = recv_msg(client_socket)
-                if action == "GET" or action == "SEND":
+                
+                if action == "GET":
+                    data_channel(action, client_socket, filename)
+
+                if action == "SEND":
                     data_channel(action, client_socket, filename)
 
                 if action == "CLOSE":

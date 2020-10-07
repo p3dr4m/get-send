@@ -17,6 +17,7 @@ import socket
 import sys
 import os
 from pathlib import Path
+import string
 
 HOST = ""
 PORT = 7005
@@ -55,7 +56,6 @@ def recv_msg(s):
     message_start = HEADERSIZE + action_len
     action = data[HEADERSIZE : HEADERSIZE + action_len].decode()
     message = data[message_start:].decode()
-    print(action, message, msglen)
     return message, action, msglen
 
 
@@ -129,7 +129,6 @@ def get(host, filename):
             with open(Path(filename).name, "wb") as f:
                 f.write(data)
                 f.close()
-            s.close()
         except KeyboardInterrupt:
             s.close()
             sys.exit(1)
@@ -153,13 +152,13 @@ def send(host, filename):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.connect((host, DATA_PORT))
-            with s:
-                if os.path.exists(filename):
-                    with open(filename, "rb") as f:
-                        send_file(s, f)
-                else:
-                    print(f"{filename} doesn't exist on client")
-            s.close()
+
+            if os.path.isfile(Path(filename).name):
+                with open(Path(filename).name, "rb") as f:
+                    send_file(s, f)
+            else:
+                print(f"{Path(filename).name} doesn't exist on client")
+
         except KeyboardInterrupt:
             s.close()
             sys.exit(1)
@@ -179,6 +178,7 @@ def control_connect():
     --  Connects to the control channel socket on the server
     --  Parses user action input and sends a message to the server
     --  Listens for data_channel socket READY message to approved data socket connection
+    --  Listens for FIN message to clear socket connection
     --------------------------------------------------------------------------
     """
     if len(sys.argv) != 2:
@@ -188,43 +188,56 @@ def control_connect():
 
     host = host or HOST
     print(host)
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
+    try:
+        print("Type an action")
+        print("Format: <ACTION> <FILENAME>")
+        print("Example: GET filename.txt")
+        print("Example: SEND filename.txt")
+        print("Example: CLOSE")
+        command = ""
+        while command != "CLOSE":
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             s.connect((host, PORT))
-            print("Type an action")
-            print("Format: <ACTION> <FILENAME>")
-            print("Example: GET filename.txt")
-            print("Example: SEND filename.txt")
-            print("Example: CLOSE")
-            command = ""
-            while command != "CLOSE":
-                command = input("Send action: ")
-                filename = ""
-                action, filename = (command.split(" ") + [None])[:2]
+            command = input("Send action: ")
+            filename = ""
+            action, filename = (command.split(" ") + [None])[:2]
 
-                if action == "GET":
-                    send_msg(s, filename, action)
-                elif action == "SEND":
-                    send_msg(s, filename, action)
-                elif action == "CLOSE":
-                    send_msg(s, "", action)
-                    break
-
+            if action == "GET":
                 while True:
-                    payload, action_recv, msglen = recv_msg(s)
-
+                    filename = Path(filename).name
+                    send_msg(s, filename, action)
+                    message, action_recv, msglen = recv_msg(s)
                     if action_recv == "GET_READY":
                         get(host, filename)
+                        continue
+                    elif action_recv == "GET_FIN":
+                        print("GET FIN")
+                        s = None
                         break
-                    elif action_recv == "SEND_READY":
+                    elif action_recv == "GET_FAIL":
+                        print(message)
+                        break
+            elif action == "SEND":
+                while True:
+                    filename = Path(filename).name
+                    send_msg(s, filename, action)
+                    message, action_recv, msglen = recv_msg(s)
+                    if action_recv == "SEND_READY":
                         send(host, filename)
+                        continue
+                    elif action_recv == "SEND_FIN":
+                        print("SEND FIN")
+                        s = None
                         break
+            elif action == "CLOSE":
+                send_msg(s, "", action)
 
-                command = action
-            sys.exit(0)
-        except KeyboardInterrupt:
-            s.close()
-            sys.exit(1)
+            command = action
+
+        sys.exit(0)
+    except KeyboardInterrupt:
+        s.close()
+        sys.exit(1)
 
 
 if __name__ == "__main__":
