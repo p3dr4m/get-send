@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""
+--  SOURCE FILE:    client.py
+--  PROGRAM:        client.py
+--  FUNCTIONS:      <function headers>
+--  DATE:           October 5th, 2020
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  NOTES:
+--  Connects to the control channel socket, sends messages to the server, 
+--  listens for messages from the server and
+--  then connects to the data channel socket. File transfer happen on data
+--  channel socket.
+"""
 
 import socket
 import sys
@@ -13,11 +26,19 @@ BUFFER = 64
 
 
 def recv_msg(s):
-    """
-    Helper function to receive the message
-    Message format:
-    {HEADER_LENGTH}{ACTION}{PAYLOAD}
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       recv_msg
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      recv_msg(s)
+--  RETURNS:        string message, string action, int msglen
+--  NOTES:
+--  Receives a buffered message
+--------------------------------------------------------------------------
+"""
     data = b""
     while True:
         part = s.recv(BUFFER)
@@ -31,26 +52,46 @@ def recv_msg(s):
 
     data_len = len(data)
     action_len = data_len - (HEADERSIZE + msglen)
-    payload_start = HEADERSIZE + action_len
+    message_start = HEADERSIZE + action_len
     action = data[HEADERSIZE : HEADERSIZE + action_len].decode()
-    payload = data[payload_start:].decode()
-    return payload, action, msglen
+    message = data[message_start:].decode()
+    print(message, payload, msglen)
+    return message, action, msglen
 
 
 def send_msg(s, msg, action):
-    """
-    Message format:
-    {HEADER_LENGTH}{ACTION}{PAYLOAD}
-    creates the message and sends it
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       send_msg
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      send_msg(s, msg, action)
+--  RETURNS:        void
+--  NOTES:
+--  Formats the message protocol then sends the message
+--  Message format: {MESSAGE_LENGTH}{ACTION}{MESSAGE}
+--------------------------------------------------------------------------
+"""
     msg = f"{len(msg):<{HEADERSIZE}}" + action + msg
     s.sendall(bytes(msg, "utf-8"))
 
 
 def send_file(s, f):
-    """
-    Helper that stitches the file back together
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       send_file
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      send_file(s, f)
+--  RETURNS:        void
+--  NOTES:
+--  Helper that buffers the file and sends them across the socket
+--------------------------------------------------------------------------
+"""
     part = f.read(BUFFER)
     while part:
         s.send(part)
@@ -59,11 +100,22 @@ def send_file(s, f):
 
 
 def get(host, filename):
-    """
-    Connects to the data channel and asks the server for a file
-    stiches the file and writes it to disk
-    then close
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       get
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      get(host, filename)
+--  RETURNS:        void
+--  NOTES:
+--  Connect to the data_channel socket
+--  Receive file from server and store as bytearray
+--  Write bytearray as file in current directory
+--  Exit client successfully
+--------------------------------------------------------------------------
+"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.connect((host, DATA_PORT))
@@ -85,12 +137,22 @@ def get(host, filename):
             sys.exit(1)
 
 
-def send(control, host, filename):
-    """
-    Connects to the data_channel.
-    check if file exists
-    then opens file as bytes and sends them to the server
-    """
+def send(host, filename):
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       send
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      send(host, filename)
+--  RETURNS:        void
+--  NOTES:
+--  Connect to the data_channel socket
+--  Read file from server's filesystem then calls send_file()
+--  Exit client successfully
+--------------------------------------------------------------------------
+"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.connect((host, DATA_PORT))
@@ -107,11 +169,21 @@ def send(control, host, filename):
 
 
 def control_connect(host, action, filename):
-    """
-    The client side control channel connection.
-    Sends and receives messages from server to act accordingly
-    Should refactor but w.e
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       control_connect
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      control_connect(host, action, filename)
+--  RETURNS:        void
+--  NOTES:
+--  Connects to the control channel socket on the server
+--  Parses user action input and sends a message to the server
+--  Listens for data_channel socket READY message to approved data socket connection
+--------------------------------------------------------------------------
+"""
     host = host or HOST
     print(host)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -131,7 +203,7 @@ def control_connect(host, action, filename):
                 if action_recv == "GET_READY":
                     get(host, filename)
                 elif action_recv == "SEND_READY":
-                    send(s, host, filename)
+                    send(host, filename)
 
         except KeyboardInterrupt:
             s.close()

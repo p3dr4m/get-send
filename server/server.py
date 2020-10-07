@@ -1,4 +1,17 @@
 #!/usr/bin/env python3
+"""
+--  SOURCE FILE:    server.py
+--  PROGRAM:        server.py
+--  FUNCTIONS:      <function headers>
+--  DATE:           October 5th, 2020
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  NOTES:
+--  Opens the control channel socket and listens action messages
+--  Upon receiving an action message, the data channel socket is opened and
+--  the client is notified. Once the client has connected the file transfer takes
+--  place and the socket is closed. Until the next action message.
+"""
 
 import socket
 import sys
@@ -14,11 +27,20 @@ BUFFER = 64
 
 
 def data_channel(action, control, filename):
-    """
-    This is the data_channel logic.
-    It opens a socket from the control_channel.
-    When the client sends a message with the correct action name.
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       data_channel
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      data_channel(action, control, filename)
+--  RETURNS:        void
+--  NOTES:
+--  It opens a socket from the control_channel.
+--  When the client sends a message with the correct action name.
+--------------------------------------------------------------------------
+"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -62,11 +84,19 @@ def data_channel(action, control, filename):
 
 
 def recv_msg(s):
-    """
-    Helper function to receive the message
-    Message format:
-    {HEADER_LENGTH}{ACTION}{PAYLOAD}
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       recv_msg
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      recv_msg(s)
+--  RETURNS:        string message, string action, int msglen
+--  NOTES:
+--  Receives a buffered message
+--------------------------------------------------------------------------
+"""
     data = b""
     while True:
         part = s.recv(BUFFER)
@@ -80,27 +110,46 @@ def recv_msg(s):
 
     data_len = len(data)
     action_len = data_len - (HEADERSIZE + msglen)
-    payload_start = HEADERSIZE + action_len
+    message_start = HEADERSIZE + action_len
     action = data[HEADERSIZE : HEADERSIZE + action_len].decode()
-    payload = data[payload_start:].decode()
-    print(action, payload, msglen)
-    return payload, action, msglen
+    message = data[message_start:].decode()
+    print(message, payload, msglen)
+    return message, action, msglen
 
 
 def send_msg(s, msg, action):
-    """
-    Message format:
-    {HEADER_LENGTH}{ACTION}{PAYLOAD}
-    creates the message and sends it
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       send_msg
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      send_msg(s, msg, action)
+--  RETURNS:        void
+--  NOTES:
+--  Formats the message protocol then sends the message
+--  Message format: {MESSAGE_LENGTH}{ACTION}{MESSAGE}
+--------------------------------------------------------------------------
+"""
     msg = f"{len(msg):<{HEADERSIZE}}" + action + msg
     s.sendall(bytes(msg, "utf-8"))
 
 
 def send_file(s, f):
-    """
-    Helper that stitches the file back together
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       send_file
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      send_file(s, f)
+--  RETURNS:        void
+--  NOTES:
+--  Helper that buffers the file and sends them across the socket
+--------------------------------------------------------------------------
+"""
     part = f.read(BUFFER)
     while part:
         s.send(part)
@@ -109,10 +158,20 @@ def send_file(s, f):
 
 
 def control_channel():
-    """
-    Opens the control_channel socket
-    Check for action messages and filename
-    """
+""" 
+--------------------------------------------------------------------------
+--  FUNCTION:       control_channel
+--  DATE:           October 5th, 2020
+--  REVISIONS:      N/A
+--  DESIGNER:       Pedram Nazari
+--  PROGRAMMER:     Pedram Nazari
+--  INTERFACE:      control_channel()
+--  RETURNS:        void
+--  NOTES:
+--  Opens the control socket and listens for action messages.
+--  Executes codes based on action message.
+--------------------------------------------------------------------------
+"""
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         try:
             s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
